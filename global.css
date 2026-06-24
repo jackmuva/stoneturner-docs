@@ -10,3 +10,19 @@ body,
 body * {
   color: var(--st-text) !important;
 }
+
+/* Add "stoneturner" text next to the logo link */
+a[href="/"]:has(img.nav-logo) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+a[href="/"]:has(img.nav-logo)::after {
+  content: "Stoneturner";
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: var(--st-text);
+  white-space: nowrap;
+  font-style: italic;
+}
