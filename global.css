@@ -1,0 +1,12 @@
+:root {
+  --st-text: #000000;
+}
+
+html.dark {
+  --st-text: #ffffff;
+}
+
+body,
+body * {
+  color: var(--st-text) !important;
+}
