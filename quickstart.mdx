@@ -1,47 +1,79 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Clone, configure, and run Stoneturner locally. No remote database required — Stoneturner runs against a local Turso/libSQL file out of the box."
+sidebarTitle: "Quickstart"
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+This guide takes you from zero to a running Stoneturner server with hot reload on port 9000.
 
 ## Prerequisites
 
 Before you begin, you must have:
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+- [Bun](https://bun.com) v1.3+
+- A [Vercel AI Gateway API key](https://vercel.com/ai-gateway) (used for embeddings)
 
 ## Get started
 
 <Steps>
   <Step title="Install">
-    Describe how to install your product or sign up.
+    Clone the repository and install dependencies.
 
     ```bash
-    npm install your-package
+    git clone https://github.com/jackmuva/stoneturner.git
+    cd stoneturner
+    bun install
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+  <Step title="Configure environment">
+    Copy the example environment file and fill in your values.
 
     ```bash
-    your-cli init
+    cp .env.example .env
+    ```
+
+    | Variable | Required | Description |
+    |---|---|---|
+    | `BUN_PUBLIC_BACKEND_BASE_URL` | Yes | Backend URL, inlined at build time (e.g. `http://localhost:9000`) |
+    | `FRONTEND_BASE_URL` | Yes | Frontend URL, used for CORS (e.g. `http://localhost:9000`) |
+    | `AI_GATEWAY_API_KEY` | Yes | API key for the AI gateway (embeddings) |
+    | `BUN_PUBLIC_DEV_MODE` | No | Set to `true` to create a test database for developing new integrations (default: `false`) |
+  </Step>
+  <Step title="Set up the database">
+    Generate and apply migrations. This creates a local `stoneturner.db` Turso/libSQL file — no remote database URL is needed for local development.
+
+    ```bash
+    bun run generate
+    bun run migrate
     ```
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+  <Step title="Run the dev server">
+    Start the server with hot reload on port 9000.
 
     ```bash
-    your-cli start
+    bun dev
     ```
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Build for production
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+```bash
+bun run build
+bun start
+```
+
+<Note>
+  In dev mode (`BUN_PUBLIC_DEV_MODE=true`), a separate test database is created so you can iterate on new integrations without affecting your primary data.
+</Note>
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="How Stoneturner Works" icon="arrows-rotate" href="/how-stoneturner-works">
+    Understand the connect → sync → search pipeline.
+  </Card>
+  <Card title="Add an Integration" icon="puzzle-piece" href="/new-integrations">
+    Build a new data source under `src/integrations/`.
+  </Card>
+</Columns>

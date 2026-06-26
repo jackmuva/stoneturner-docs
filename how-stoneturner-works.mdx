@@ -1,0 +1,59 @@
+---
+title: "How Stoneturner Works"
+description: "Walk through the connect → sync → search flow to understand how Stoneturner turns external data into agent-searchable context."
+sidebarTitle: "How Stoneturner Works"
+---
+
+Stoneturner sits between your external data sources and your agents. It pulls raw data in, distills it into structured markdown, vectorizes it, and serves it back over MCP.
+
+## The end-to-end flow
+
+<Steps>
+  <Step title="Connect an integration">
+    Provide API credentials via the web UI or API. Each integration declares how it authenticates — API key, basic token, or OAuth.
+  </Step>
+  <Step title="Sync">
+    Stoneturner fetches data, parses it into markdown artifacts, and indexes them into vector tables.
+  </Step>
+  <Step title="Search">
+    Agents query the MCP server using `semantic_search` and other tools to find relevant context.
+  </Step>
+</Steps>
+
+## The sync pipeline
+
+Every integration follows the same three-stage pipeline:
+
+```
+sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)
+```
+
+- **sync-data** — fetches raw data from the integration's API, often via several parallel calls.
+- **parse** — uses an LLM to extract insights from each artifact: key points, questions answered, and entities, alongside the full markdown content.
+- **index-vector** — embeds the content and upserts it into the vector tables.
+
+Each step writes `syncTask` rows so progress is observable from the web UI.
+
+<Note>
+  All network and LLM calls are wrapped in retry logic with quadratic backoff. Syncs are fire-and-forget from the HTTP handler — the request returns immediately and the pipeline runs in the background.
+</Note>
+
+## What gets indexed
+
+The parse step produces three vectorized representations of each artifact, so semantic search can match on any of them:
+
+| Embedding | What it captures |
+|---|---|
+| `contentEmbedding` | The full markdown content of the artifact |
+| `keyPointsEmbedding` | LLM-extracted key points |
+| `questionsAnsweredEmbedding` | Questions the artifact answers |
+
+Artifacts themselves are stored in `mdArtifacts` with their content, key points, questions, entities, and metadata — retrievable in full via `get_md_artifact_by_id`.
+
+## Serving agents over MCP
+
+The MCP server is exposed as Streamable HTTP at `/mcp`. Agents call standard MCP tools to search across all indexed content, retrieve raw artifacts, run read-only SQL, list integrations, and trigger syncs.
+
+<Tip>
+  For the full tool list and parameters, see the [Overview](/overview#mcp-tools).
+</Tip>

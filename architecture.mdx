@@ -1,0 +1,83 @@
+---
+title: "Architecture"
+description: "How the Stoneturner codebase is laid out — the project structure, database, MCP server, and frontend."
+sidebarTitle: "Architecture"
+---
+
+Stoneturner is Bun-first: a single `Bun.serve()` entry point hosts the HTTP routes, the MCP server, and the React SPA. Shared plumbing lives under `src/core/`, and each data source lives in its own folder under `src/integrations/`.
+
+## Project structure
+
+```
+src/
+  core/
+    db/              # Database connection, queries, and schemas (relational + vector)
+    handlers/        # HTTP + MCP request handlers
+    middleware/      # CORS middleware (note: directory is "middlware")
+    models/          # Shared type definitions
+    services/        # Embedding, vector indexing, MCP server, tools
+  integrations/
+    config-registry.ts   # Frontend UI config for all integrations
+    sync-registry.ts     # Sync dispatch for all integrations
+    gong/                 # Gong integration
+      config.ts           # IntegrationConfig definition
+      integration.ts      # Integration object (sync pipeline, delete)
+      db/                 # Gong-specific schemas and queries
+      models/             # Gong API response types
+      sync-steps/         # Individual sync pipeline steps
+  client/               # React SPA (monitoring + credential config)
+  index.ts              # Bun.serve() entry point with all routes
+```
+
+The `@/*` import alias resolves to `src/*`.
+
+<Note>
+  The CORS middleware directory is actually named `middlware/` (a typo carried in the codebase), not `middleware/`.
+</Note>
+
+## Runtime
+
+- A single `Bun.serve()` in `src/index.ts` defines the routes and runs HMR in dev, on port 9000.
+- Bun-first throughout: `Bun.serve()`, `Bun.file`, `bunx`. No express, vite, or webpack.
+- The one exception is the database: Turso/libSQL via Drizzle (`@tursodatabase/database`), not `bun:sqlite`.
+
+## Database
+
+Stoneturner uses Turso/libSQL through `drizzle-orm/tursodatabase/database`, backed by a local `stoneturner.db` file. Vector tables use `vector32()` and `vector_distance_cos()`.
+
+| Type | Schemas |
+|---|---|
+| Relational | `integrationCredential`, `syncTask`, `mdArtifacts` |
+| Vector | `contentEmbedding`, `keyPointsEmbedding`, `questionsAnsweredEmbedding` |
+
+Schema changes flow through Drizzle:
+
+```bash
+bun run generate   # schema → migration files (drizzle-kit generate)
+bun run migrate    # apply pending migrations (drizzle-kit migrate)
+```
+
+## MCP server
+
+- Streamable HTTP MCP mounted at `/mcp`.
+- Not wrapped in CORS middleware — MCP clients call it server-side.
+- JSON-RPC, with no batching and no SSE streams.
+- Exposes `semantic_search`, `get_md_artifact_by_id`, `run_sql_query`, `get_integration_sources`, and `sync_source`.
+
+## Frontend
+
+- React 19 + `react-router-dom` SPA, using shadcn/radix and Tailwind v4.
+- Entry: `src/client/index.html` → `frontend.tsx`.
+- Fetch targets are inlined at build time from `process.env.BUN_PUBLIC_BACKEND_BASE_URL`.
+- Built with `bun-plugin-tailwind` configured in `build.ts` and `bunfig.toml`.
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `bun dev` | Run the server with hot reload (`bun --hot src/index.ts`) |
+| `bun run build` | Bundle the frontend to `dist/` |
+| `bun start` | Production server |
+| `bunx tsc --noEmit` | Typecheck |
+| `bun run generate` | Generate migration files from schema |
+| `bun run migrate` | Apply pending migrations |

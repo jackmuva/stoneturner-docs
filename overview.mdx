@@ -1,0 +1,56 @@
+---
+title: "Overview"
+description: "The unifying data sync & search layer for agents. Stoneturner syncs data from external integrations, converts it into structured markdown, vectorizes it, and exposes it to agents over MCP."
+mode: "wide"
+---
+
+Stoneturner syncs data from external integrations, converts it into structured markdown, vectorizes it, and exposes it to agents via an MCP server. Agents can search across all your integrated context semantically, retrieve raw artifacts, and trigger syncs — all through standard MCP tool calls.
+
+It also ships with a web UI for monitoring sync tasks, viewing raw markdown artifacts, and configuring integration credentials.
+
+<Columns cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Clone, configure, and run Stoneturner locally in a few minutes.
+  </Card>
+  <Card title="How Stoneturner Works" icon="arrows-rotate" href="/how-stoneturner-works">
+    Walk through the connect → sync → search flow end to end.
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    The project layout, database, MCP server, and frontend.
+  </Card>
+  <Card title="Add an Integration" icon="puzzle-piece" href="/new-integrations">
+    Wire up a new data source under `src/integrations/`.
+  </Card>
+</Columns>
+
+## What you get
+
+Connect an integration, sync its data, and your agents can immediately query it semantically. The same content is available as raw markdown artifacts and over a read-only SQL interface.
+
+<Steps>
+  <Step title="Connect an integration">
+    Provide API credentials via the web UI or API.
+  </Step>
+  <Step title="Sync">
+    Stoneturner fetches data, parses it into markdown artifacts, and indexes them into vector tables.
+  </Step>
+  <Step title="Search">
+    Agents query the MCP server using `semantic_search` and other tools to find relevant context.
+  </Step>
+</Steps>
+
+## MCP tools
+
+The MCP server (Streamable HTTP at `/mcp`) exposes these tools to your agents:
+
+| Tool | Description |
+|---|---|
+| `semantic_search` | Semantic search across indexed content, key points, and questions answered. Supports filtering by integration, date range, and entities. |
+| `get_md_artifact_by_id` | Retrieve a single markdown artifact by ID — full content, key points, questions, entities, and metadata. |
+| `run_sql_query` | Run a single read-only `SELECT` statement against the underlying SQLite (libSQL/Turso) database. Returns rows as JSON. Only `SELECT` (and `WITH ... SELECT`) statements are permitted — any mutating or schema-modifying statement is rejected. |
+| `get_integration_sources` | List all registered integrations and their credential status. |
+| `sync_source` | Trigger a full or incremental sync for an integration. Returns a credential URL if not yet configured. |
+
+<Tip>
+  Don't want to self-host? Use the [Stoneturner Managed MCP](https://app.stoneturner.app) for a hosted sync and search layer.
+</Tip>

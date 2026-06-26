@@ -1,0 +1,107 @@
+---
+title: "Add an Integration"
+description: "Stoneturner is designed to make adding integrations straightforward. Each integration lives in its own directory under src/integrations/."
+sidebarTitle: "Add an Integration"
+---
+
+Each integration lives in its own directory under `src/integrations/` and exports two things: an `IntegrationConfig` (how users authenticate) and an `Integration` (the sync pipeline). Once registered, it's available to the web UI and the MCP server.
+
+## 1. Create the integration directory
+
+```
+src/integrations/my-integration/
+  config.ts
+  integration.ts
+  db/
+    schema.ts
+    queries.ts
+  models/
+    models.ts
+  sync-steps/
+    sync-data-step.ts
+    parse-step.ts
+```
+
+## 2. Define `IntegrationConfig`
+
+In `config.ts`, export a config that describes how users authenticate:
+
+```ts config.ts
+import type { IntegrationConfig } from "@/core/models/models";
+
+export const myConfig: IntegrationConfig = {
+  integration: "MyIntegration",
+  icon: "/assets/my-integration.png",
+  integrationType: "API_KEY",        // "BASIC_TOKEN" | "OAUTH" | "API_KEY"
+  description: "My integration description",
+  docs: "https://docs.my-integration.com/api",
+  inputs: [
+    { input: "accessKey", label: "Access Key" },
+    { input: "secretKey", label: "Secret Key" },
+    { input: "baseUrl", label: "API Base URL" },
+  ],
+  installUrl: "https://app.my-integration.com/install",
+  oauthAuthorizationUrl: "https://app.my-integration.com/oauth/authorize",
+};
+```
+
+## 3. Define `Integration`
+
+In `integration.ts`, export an `Integration` object with your sync pipeline:
+
+```ts integration.ts
+import type { Integration } from "@/core/models/models";
+import { myConfig } from "./config";
+
+export const myIntegration: Integration = {
+  config: myConfig,
+  sync: async () => { /* full sync */ },
+  syncUpdates: async () => { /* incremental sync */ },
+  deleteSync: async () => { /* clean up all data */ },
+  handleRedirect: async (req) => { /* handle OAuth redirect */ },
+  refreshAccessTokens: async () => { /* refresh OAuth tokens */ },
+};
+```
+
+<Tip>
+  Your sync functions should follow the standard pipeline: `sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)`. See [How Stoneturner Works](/how-stoneturner-works) for the full pattern.
+</Tip>
+
+## 4. Define database schemas and migrate
+
+Add your integration's tables in `src/integrations/my-integration/db/schema.ts`, then generate and apply migrations:
+
+```bash
+bun run generate
+bun run migrate
+```
+
+This updates the local `stoneturner.db`. In dev mode (`BUN_PUBLIC_DEV_MODE=true`), a separate test database is created so you can iterate without affecting production data.
+
+## 5. Register the integration
+
+Add your config to `src/integrations/config-registry.ts`:
+
+```ts config-registry.ts
+import { myConfig } from "./my-integration/config";
+
+export const configRegistry: IntegrationConfig[] = [
+  gongConfig,
+  myConfig,    // add yours
+];
+```
+
+Add your integration to `src/integrations/sync-registry.ts`:
+
+```ts sync-registry.ts
+import { myIntegration } from "./my-integration/integration";
+
+export const supportedIntegrations: Integration[] = [
+  gongIntegration,
+  myIntegration,    // add yours
+];
+```
+
+<Note>
+  The config registry powers the frontend credential UI; the sync registry powers sync dispatch. An integration must be in both to be fully wired up.
+</Note>
