@@ -1,0 +1,59 @@
+---
+title: "Integration Skill"
+description: "Stoneturner ships a Claude Code skill that builds a new integration end to end — scaffolding, sync pipeline, vectorization, and registration."
+sidebarTitle: "Integration Skill"
+---
+
+Stoneturner ships an [agent skill](https://docs.claude.com/en/docs/claude-code/skills) under `skills/` that walks an agent through building a new integration end to end — syncing external data, parsing it into markdown artifacts, vectorizing it, and exposing it over the MCP server. It encodes the conventions from the existing Gong, Notion, and Discord integrations so you don't have to rediscover them.
+
+## When it triggers
+
+The `build-stoneturner-integration` skill activates when you ask an agent to add a new data source under `src/integrations/` — a SaaS API, an OAuth app, or any other external source. In Claude Code, the skill loads automatically when the repository is in context; you can also invoke it explicitly.
+
+<Tip>
+  Prefer the skill over the manual steps in [Add an Integration](/new-integrations) when working with an agent — it carries the same patterns plus copy-paste-ready references for rate limiting, pagination, incremental sync, and idempotency.
+</Tip>
+
+## What it covers
+
+The skill (`skills/SKILL.md`) drives the work in order:
+
+<Steps>
+  <Step title="Scaffold the folder">
+    Create `config.ts`, `integration.ts`, `db/`, `models/`, and `sync-steps/` under `src/integrations/<name>/`.
+  </Step>
+  <Step title="Define the config">
+    Pick an `integrationType` (`BASIC_TOKEN`, `API_KEY`, or `OAUTH`) and declare credential `inputs` or `oauthAuthorizationUrl`.
+  </Step>
+  <Step title="Define schemas + queries">
+    Mirror the source's shape in Drizzle tables with a stable unique key, idempotent `onConflictDoUpdate` inserts, and register the schema path in `drizzle.config.ts`.
+  </Step>
+  <Step title="Write the sync steps">
+    Fetch with `retry()`, throttle every AI Gateway call through `aiGatewayBottleneck`, support an `incremental` flag, and log `syncTask` rows.
+  </Step>
+  <Step title="Assemble the pipeline">
+    Compose the steps into one `syncPipeline(incremental)` and export an `Integration` whose `deleteSync` purges syncTasks, artifacts, embeddings, and your own tables.
+  </Step>
+  <Step title="Register and migrate">
+    Add the config and integration to the registries, then `bun run generate && bun run migrate` and smoke-test a sync.
+  </Step>
+</Steps>
+
+## Reference files
+
+`SKILL.md` points to four references with deeper detail and patterns:
+
+| Reference | What it covers |
+|---|---|
+| `references/anatomy.md` | The two core types (`IntegrationConfig`, `Integration`), folder layout, schemas, idempotent inserts, and the registries. |
+| `references/sync-pipeline.md` | Writing sync / parse / index steps — rate limiting, retries, sync-task logging, and the markdown-artifact contract. |
+| `references/auth.md` | `BASIC_TOKEN`, `API_KEY`, and `OAUTH` credential patterns, including `handleRedirect` and `refreshAccessTokens`. |
+| `references/checklist.md` | A copy-pasteable end-to-end checklist plus the commands to run. |
+
+## Conventions it enforces
+
+- `@/*` is the alias for `src/*`.
+- The shared vector step is `index-vector-db-step.ts` — reuse it, don't fork it.
+- The integration string on every `mdArtifact` and `syncTask`, and the argument to `indexVectorDbStep(...)`, must all equal `config.integration` — they're matched as plain strings.
+- Syncs are fire-and-forget from the HTTP handler, so all error handling lives inside the steps and is recorded as `syncTask` rows.
+- The middleware directory is misspelled `middlware/` on purpose — don't "fix" it.

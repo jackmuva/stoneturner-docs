@@ -1,19 +1,21 @@
 ---
 title: "Quickstart"
-description: "Clone, configure, and run Stoneturner locally. No remote database required — Stoneturner runs against a local Turso/libSQL file out of the box."
+description: "Clone, configure, and run Stoneturner locally. No remote database required — Stoneturner runs against a local db out of the box."
 sidebarTitle: "Quickstart"
 ---
 
-This guide takes you from zero to a running Stoneturner server with hot reload on port 9000.
+## Running Locally
 
-## Prerequisites
+### Prerequisites
 
 Before you begin, you must have:
 
-- [Bun](https://bun.com) v1.3+
-- A [Vercel AI Gateway API key](https://vercel.com/ai-gateway) (used for embeddings)
+- [ ] [Bun](https://bun.com) v1.3+
+- [ ] [Vercel AI Gateway API key](https://vercel.com/ai-gateway) (used for embeddings)
 
-## Get started
+### Setting up Stoneturner MCP locally
+
+<img src="assets/agent-search.png" alt="integrations" style={{borderRadius: "10px"}} />
 
 <Steps>
   <Step title="Install">
@@ -51,29 +53,50 @@ Before you begin, you must have:
     Start the server with hot reload on port 9000.
 
     ```bash
-    bun dev
+    bun run start
     ```
   </Step>
 </Steps>
 
-## Build for production
+### Connect to Stoneturner
 
-```bash
-bun run build
-bun start
+Configure an HTTP-based MCP in your agent config
+
+#### Claude Code
+```bash Claude CLI
+claude mcp add --transport http stoneturner http://localhost:9000/mcp
 ```
 
-<Note>
-  In dev mode (`BUN_PUBLIC_DEV_MODE=true`), a separate test database is created so you can iterate on new integrations without affecting your primary data.
-</Note>
+```json .mcp.json manual add
+{
+  "mcpServers": {
+    "stoneturner": {
+      "type": "remote",
+      "url": "http://localhost:9000/mcp"
+    }
+  }
+}
+```
 
-## Next steps
+#### Codex
 
-<Columns cols={2}>
-  <Card title="How Stoneturner Works" icon="arrows-rotate" href="/how-stoneturner-works">
-    Understand the connect → sync → search pipeline.
-  </Card>
-  <Card title="Add an Integration" icon="puzzle-piece" href="/new-integrations">
-    Build a new data source under `src/integrations/`.
-  </Card>
-</Columns>
+```toml config.toml
+[mcp_servers.stoneturner]
+url = "http://localhost:9000/mcp"
+```
+
+#### OpenCode
+```json .config/opencode/opencode.jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "stoneturner": {
+      "type": "remote",
+      "url": "http://localhost:9000/mcp",
+      "enabled":true
+    }
+  }
+}
+```
+
+
