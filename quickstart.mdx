@@ -62,41 +62,43 @@ Before you begin, you must have:
 
 Configure an HTTP-based MCP in your agent config
 
-#### Claude Code
-```bash Claude CLI
-claude mcp add --transport http stoneturner http://localhost:9000/mcp
-```
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash Claude CLI
+    claude mcp add --transport http stoneturner http://localhost:9000/mcp
+    ```
 
-```json .mcp.json manual add
-{
-  "mcpServers": {
-    "stoneturner": {
-      "type": "remote",
-      "url": "http://localhost:9000/mcp"
+    ```json .mcp.json manual add
+    {
+      "mcpServers": {
+        "stoneturner": {
+          "type": "remote",
+          "url": "http://localhost:9000/mcp"
+        }
+      }
     }
-  }
-}
-```
-
-#### Codex
-
-```toml config.toml
-[mcp_servers.stoneturner]
-url = "http://localhost:9000/mcp"
-```
-
-#### OpenCode
-```json .config/opencode/opencode.jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "stoneturner": {
-      "type": "remote",
-      "url": "http://localhost:9000/mcp",
-      "enabled":true
+    ```
+  </Tab>
+  <Tab title="Codex">
+    ```toml config.toml
+    [mcp_servers.stoneturner]
+    url = "http://localhost:9000/mcp"
+    ```
+  </Tab>
+  <Tab title="OpenCode">
+    ```json .config/opencode/opencode.jsonc
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "mcp": {
+        "stoneturner": {
+          "type": "remote",
+          "url": "http://localhost:9000/mcp",
+          "enabled":true
+        }
+      }
     }
-  }
-}
-```
+    ```
+  </Tab>
+</Tabs>
 
 
