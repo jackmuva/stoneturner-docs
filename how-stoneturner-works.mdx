@@ -1,59 +1,34 @@
 ---
 title: "How Stoneturner Works"
-description: "Walk through the connect → sync → search flow to understand how Stoneturner turns external data into agent-searchable context."
+description: "Stoneturner syncs data from your external data sources so agents can search with SQL and vector search tools. Here's it's done:"
 sidebarTitle: "How Stoneturner Works"
 ---
 
-Stoneturner sits between your external data sources and your agents. It pulls raw data in, distills it into structured markdown, vectorizes it, and serves it back over MCP.
-
-## The end-to-end flow
-
 <Steps>
-  <Step title="Connect an integration">
-    Provide API credentials via the web UI or API. Each integration declares how it authenticates — API key, basic token, or OAuth.
+  <Step title="Managing Data Connections">
+    Stoneturner supports OAuth, Basic Auth, and API Keys to connect to your integration data. We manage and refresh your credentials to keep your data in-sync.
+
+    <img src="assets/notion-connect.png" alt="notion" style={{borderRadius: "10px"}} />
   </Step>
-  <Step title="Sync">
-    Stoneturner fetches data, parses it into markdown artifacts, and indexes them into vector tables.
+  <Step title="Reliable Syncing">
+    Stoneturner fetches data from the integration provider with respect to rate limits, incremental updates, and stores the native data schemas.
+
+    <img src="assets/turso.png" alt="turso-db" style={{borderRadius: "10px"}} />
+  </Step>
+  <Step title="Pre-processing for Optimized Search">
+    Agents are at their most optimal when reading clean Markdown, writing scripts for well-defined schemas, and searching unstructured data semantically.
+
+    Stoneturner does pre-processing using LLMs to extract insights and tags, vector embed content, and formatting everything from transcripts to message threads to Markdown.
+
+    <img src="assets/discord-md.png" alt="discord markdown" style={{borderRadius: "10px"}} />
   </Step>
   <Step title="Search">
-    Agents query the MCP server using `semantic_search` and other tools to find relevant context.
+    Stoneturner provides just 5 tools for agents to sync and search all of your synced data. No tool bloat. Just simple interfaces for agents to use intelligently.
+
+    <img src="assets/stoneturner-tools.png" alt="tools" style={{borderRadius: "10px"}} />
   </Step>
 </Steps>
 
-## The sync pipeline
-
-Every integration follows the same three-stage pipeline:
-
-```
-sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)
-```
-
-- **sync-data** — fetches raw data from the integration's API, often via several parallel calls.
-- **parse** — uses an LLM to extract insights from each artifact: key points, questions answered, and entities, alongside the full markdown content.
-- **index-vector** — embeds the content and upserts it into the vector tables.
-
-Each step writes `syncTask` rows so progress is observable from the web UI.
-
-<Note>
-  All network and LLM calls are wrapped in retry logic with quadratic backoff. Syncs are fire-and-forget from the HTTP handler — the request returns immediately and the pipeline runs in the background.
-</Note>
-
-## What gets indexed
-
-The parse step produces three vectorized representations of each artifact, so semantic search can match on any of them:
-
-| Embedding | What it captures |
-|---|---|
-| `contentEmbedding` | The full markdown content of the artifact |
-| `keyPointsEmbedding` | LLM-extracted key points |
-| `questionsAnsweredEmbedding` | Questions the artifact answers |
-
-Artifacts themselves are stored in `mdArtifacts` with their content, key points, questions, entities, and metadata — retrievable in full via `get_md_artifact_by_id`.
-
-## Serving agents over MCP
-
-The MCP server is exposed as Streamable HTTP at `/mcp`. Agents call standard MCP tools to search across all indexed content, retrieve raw artifacts, run read-only SQL, list integrations, and trigger syncs.
-
 <Tip>
-  For the full tool list and parameters, see the [Overview](/overview#mcp-tools).
+  If you're interested in the technology that powers Stoneturner, read the [application architecture](/architecture), whether you'd like to extend Stoneturner or just curious to learn about agent search.
 </Tip>

@@ -1,14 +1,29 @@
 ---
-title: "Add an Integration"
-description: "Stoneturner is designed to make adding integrations straightforward. Each integration lives in its own directory under src/integrations/."
-sidebarTitle: "Add an Integration"
+title: "Add Integrations"
+description: "Stoneturner is designed be extensible with an opinionated interface for defining syncs."
+sidebarTitle: "Add Integrations"
 ---
 
-Each integration lives in its own directory under `src/integrations/` and exports two things: an `IntegrationConfig` (how users authenticate) and an `Integration` (the sync pipeline). Once registered, it's available to the web UI and the MCP server.
+<Note>
+  The following docs are all self-contained in the `Stoneturner Skill`.
 
-## 1. Create the integration directory
+  Read the docs and then get started with the Skill
 
-```
+  ```bash
+  npx skills add jackmuva/stoneturner
+  ```
+</Note>
+
+Each integration lives in its own directory under `src/integrations/` and exports two things:
+
+1. `IntegrationConfig` - this describes how users should authenticate (OAuth, API Key, etc.) and any special configurations
+2. `Integration` - the sync pipeline (for OAuth integrations, this includes redirect handler and refresh token mechanisms)
+
+## 1. Project Setup 
+
+While this isn't a requirement, you/agents can reference existing integrations to build your new integration extremely quickly.
+
+```bash standard template
 src/integrations/my-integration/
   config.ts
   integration.ts
@@ -22,9 +37,9 @@ src/integrations/my-integration/
     parse-step.ts
 ```
 
-## 2. Define `IntegrationConfig`
+## 2. `IntegrationConfig` Definition
 
-In `config.ts`, export a config that describes how users authenticate:
+In `config.ts`, export a config that describes how users authenticate. 
 
 ```ts config.ts
 import type { IntegrationConfig } from "@/core/models/models";
@@ -32,24 +47,29 @@ import type { IntegrationConfig } from "@/core/models/models";
 export const myConfig: IntegrationConfig = {
   integration: "MyIntegration",
   icon: "/assets/my-integration.png",
-  integrationType: "API_KEY",        // "BASIC_TOKEN" | "OAUTH" | "API_KEY"
-  description: "My integration description",
+  integrationType: "OAUTH",        // "BASIC_TOKEN" | "OAUTH" | "API_KEY"
+  description: "My integration description", //Will be rendered in the front end
   docs: "https://docs.my-integration.com/api",
   inputs: [                                              // optional — token/key fields the user enters
     { input: "accessKey", label: "Access Key" },         // allowed keys: accessKey, secretKey, baseUrl
     { input: "secretKey", label: "Secret Key" },
     { input: "baseUrl", label: "API Base URL" },
   ],
-  installUrl: "https://app.my-integration.com/install",                 // optional
+  optionInputs?: {
+    key: "field",
+    label: "Optional field",
+  }[],
   oauthAuthorizationUrl: "https://app.my-integration.com/oauth/authorize", // optional, but required for OAuth
 };
 ```
 
 <Note>
-  The `inputs[].input` values are fixed — only `accessKey`, `secretKey`, and `baseUrl` are allowed, because each maps to a column on the shared `integrationCredential` table. You can't invent new input names.
+  Inputs are rendered on the frontend so you can input API Keys, Client Secrets, and other configurations for Stoneturner to use during syncs
+
+  <img src="assets/integration-options.png" alt="integrations" style={{borderRadius: "10px"}} />
 </Note>
 
-## 3. Define `Integration`
+## 3. `Integration` Definition
 
 In `integration.ts`, export an `Integration` object with your sync pipeline:
 
@@ -68,14 +88,30 @@ export const myIntegration: Integration = {
 ```
 
 <Tip>
-  Your sync functions should follow the standard pipeline: `sync-data (parallel fetches) → parse (LLM-extracted insights) → index-vector (embed + upsert)`. See [How Stoneturner Works](/how-stoneturner-works) for the full pattern.
+  Your sync functions should generally follow the standard pipeline: 
+  1. Sync data
+  2. Parse synced data to Markdown
+  3. LLM step to extract insights for search
+  4. Index vector database (embed + upsert)`. 
+
+  ```typescript
+  export const syncDiscordPipeline = async (incremental: boolean = true, db: SqliteDb) => {
+    await syncChannels(db);
+    await syncMessages(incremental, db);
+    await parseDiscordMessages(incremental, db);
+    await indexVectorDbStep("discord", incremental, db);
+  }
+  ```
+  <Note>
+    Syncs also upport incremental updates (i.e. you don't want to re-sync all data every day, incremental updates allow you to sync only new records).
+  </Note>
 </Tip>
 
-## 4. Define database schemas and migrate
+## 4. Database Schemas and Migrations
 
 Add your integration's tables in `src/integrations/my-integration/db/schema.ts`. Each table should give every row a stable, unique business key (e.g. `callId`) and use `onConflictDoUpdate` in its insert helpers so re-syncs upsert rather than duplicate.
 
-Then point Drizzle at your new schema in `drizzle.config.ts` so migrations pick up the new tables:
+Then point Drizzle at your new schema in `drizzle.config.ts` so your schema changes will be available in Stoneturner's Turso DB.
 
 ```ts drizzle.config.ts
 export default defineConfig({
@@ -97,7 +133,7 @@ bun run migrate
 
 This updates the local `stoneturner.db`. In dev mode (`BUN_PUBLIC_DEV_MODE=true`), a separate test database is created so you can iterate without affecting production data.
 
-## 5. Register the integration
+## 5. Register Your Integration
 
 Add your config to `src/integrations/config-registry.ts`:
 
@@ -124,3 +160,6 @@ export const supportedIntegrations: Integration[] = [
 <Note>
   The config registry powers the frontend credential UI; the sync registry powers sync dispatch. An integration must be in both to be fully wired up.
 </Note>
+
+
+<img src="assets/integration-page.png" alt="integrations" style={{borderRadius: "10px"}} />

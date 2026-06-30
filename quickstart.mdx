@@ -1,10 +1,72 @@
 ---
 title: "Quickstart"
-description: "Clone, configure, and run Stoneturner locally. No remote database required — Stoneturner runs against a local db out of the box."
+description: "Connect your agent to the Stoneturner MCP"
 sidebarTitle: "Quickstart"
 ---
 
-## Running Locally
+# Connecting to Stoneturner
+
+There are two ways to connect your agents to Stoneturner:
+
+<Columns cols={2}>
+  <Card title="Stoneturner hosted MCP" icon="cloud" href="/quickstart#stoneturner-hosted-mcp">
+    We take care of data storage and incremental syncs so your agents can search your data from anywhere
+  </Card>
+  <Card title="Stoneturner Local" icon="computer" href="/quickstart#running-stoneturner-locally">
+  Your data is privately synced to your local machine (or VPC) - **everything you can do on the Stoneturner hosted MCP is available, and all open source**
+  </Card>
+</Columns>
+
+## Option 1: Stoneturner Hosted MCP
+
+Just add Stoneturner to your agent config. That's it!
+
+<Note>
+  You can also start at [https://app.stoneturner.app](https://app.stoneturner.app) to start your syncs and connect your agent to the MCP after.
+
+  You can also have the agents kick off syncs via the MCP, if you'd like your agent to set everything up.
+</Note>
+
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash Claude CLI
+    claude mcp add --transport http stoneturner http://localhost:9000/mcp
+    ```
+
+    ```json .mcp.json manual add
+    {
+      "mcpServers": {
+        "stoneturner": {
+          "type": "remote",
+          "url": "https://app.stoneturner.app/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Codex">
+    ```toml config.toml
+    [mcp_servers.stoneturner]
+    url = "https://app.stoneturner.app/mcp"
+    ```
+  </Tab>
+  <Tab title="OpenCode">
+    ```json .config/opencode/opencode.jsonc
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "mcp": {
+        "stoneturner": {
+          "type": "remote",
+          "url": "https://app.stoneturner.app/mcp",
+          "enabled":true
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Option 2: Running Stoneturner Locally
 
 ### Prerequisites
 

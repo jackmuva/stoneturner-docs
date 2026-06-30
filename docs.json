@@ -28,11 +28,25 @@
         ]
       },
       {
-        "group": "For Developers",
+        "group": "For Builders",
         "pages": [
           "architecture",
-          "new-integrations",
-          "skills"
+          "add-integrations"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          {
+          "group":  "Supported Data Sources",
+            "pages": [
+              "data/gong",
+              "data/discord",
+              "data/notion",
+              "data/plaud",
+              "data/firecrawl"
+            ]
+          }
         ]
       }
     ],
@@ -51,7 +65,12 @@
     "dark": "/assets/stoneturner.png"
   },
   "navbar": {
-    "links": []
+    "links": [],
+    "primary": {
+      "type": "github",
+      "label": "Stoneturner",
+      "href": "https://github.com/jackmuva/stoneturner"
+    }
   },
   "contextual": {
     "options": [

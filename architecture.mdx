@@ -1,10 +1,66 @@
 ---
 title: "Architecture"
-description: "How the Stoneturner codebase is laid out — the project structure, database, MCP server, and frontend."
+description: "How the Stoneturner codebase is laid out."
 sidebarTitle: "Architecture"
 ---
 
-Stoneturner is Bun-first: a single `Bun.serve()` entry point hosts the HTTP routes, the MCP server, and the React SPA. Shared plumbing lives under `src/core/`, and each data source lives in its own folder under `src/integrations/`.
+## Stoneturner Components
+
+<Columns cols={2}>
+  <Card title="React Client">
+    UI to monitor syncs, view markdown, and authenticate to data sources
+    ```jsx
+      <Route element={<Layout />}>
+        <Route path="/" element={<KnowledgeBasePage />} />
+        <Route path="knowledge" element={<KnowledgeBasePage />} />
+        <Route path="knowledge/config/:integration" element={<KnowledgeBasePage />} />
+        <Route path="knowledge/data/:integration" element={<IntegrationDataPage />} />
+        <Route path="monitoring" element={<SyncMonitoringPage />} />
+      </Route>
+    ```
+  </Card>
+  <Card title="MCP Server" >
+    Tools for agents to search all of your context efficiently
+    ```typescript
+    export const tools: McpTool[] = [
+      {
+        name: "semantic_search",
+        description:
+          `Semantic search across indexed call content,
+          extracted key points, and questions answered.
+          Returns the most relevant artifacts ranked by similarity,
+         ...`
+    ```
+  </Card>
+  <Card title="Integrations">
+    Integrated data sources to sync
+    ```typescript
+    export const gongIntegration: Integration = {
+      config: gongConfig,
+      sync: async(db: SqliteDb) => await syncGongPipeline(false, db),
+      syncUpdates: async(db: SqliteDb) => await syncGongPipeline(true, db),
+      deleteSync: async(db: SqliteDb) => {
+        await deleteSyncTasksByIntegration("Gong", db);
+        await deleteMdArtifactsByIntegration("Gong", db);
+        await deleteEmbeddingByIntegration("Gong", db);
+        await deleteAllGongData(db);
+      }
+    }
+    ```
+  </Card>
+  <Card title="Core Services" >
+    Turso DB storage, vector embeddings, CRONs, rate limitting
+    ```typescript
+      export const searchContentEmbeddingByCosine = async (
+        queryEmbedding: number[],
+        limit: number = 5,
+        filters?: EmbeddingSearchFilters,
+        db: SqliteDb = defaultDb,
+      ) => {
+        const distance = sql<number>`vector_distance_cos(${contentEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
+    ```
+  </Card>
+</Columns>
 
 ## Project structure
 
@@ -25,59 +81,64 @@ src/
       db/                 # Gong-specific schemas and queries
       models/             # Gong API response types
       sync-steps/         # Individual sync pipeline steps
+    .../
   client/               # React SPA (monitoring + credential config)
   index.ts              # Bun.serve() entry point with all routes
 ```
 
-The `@/*` import alias resolves to `src/*`.
+## Technology Choices
 
-<Note>
-  The CORS middleware directory is actually named `middlware/` (a typo carried in the codebase), not `middleware/`.
-</Note>
+### Turso's SQLite Rewrite
 
-## Runtime
+Stoneturner uses [Turso](https://turso.tech) for local database storage and retrieval. With the embeddable advantages of SQLite, Turso extends SQLite by adding concurrent writes and vector search.
 
-- A single `Bun.serve()` in `src/index.ts` defines the routes and runs HMR in dev, on port 9000.
-- Bun-first throughout: `Bun.serve()`, `Bun.file`, `bunx`. No express, vite, or webpack.
-- The one exception is the database: Turso/libSQL via Drizzle (`@tursodatabase/database`), not `bun:sqlite`.
+<img src="assets/turso.png" alt="turso" style={{borderRadius: "10px"}} />
 
-## Database
+Rather than run a separate vector database, Turso keeps the database layer lightweight, local, and unified to search semantically or with SQL.
 
-Stoneturner uses Turso/libSQL through `drizzle-orm/tursodatabase/database`, backed by a local `stoneturner.db` file. Vector tables use `vector32()` and `vector_distance_cos()`.
+### Vercel AI Gateway for Embedding Models and LLM Extraction
 
-| Type | Schemas |
-|---|---|
-| Relational | `integrationCredential`, `syncTask`, `mdArtifacts` |
-| Vector | `contentEmbedding`, `keyPointsEmbedding`, `questionsAnsweredEmbedding` |
+Many "LLM Gateway" products exist. Vercel supports both embedding models use to process text to index to Turso, and LLMs to run a quick task to extract insights from synced data.
 
-Schema changes flow through Drizzle:
+I borrowed this idea from [enzyme.garden](https://enzyme.garden), where semantic data should have a complilation step to prep semantic data for search. When vector searching, matching questions and insights provide better search quality over matching content alone.
 
-```bash
-bun run generate   # schema → migration files (drizzle-kit generate)
-bun run migrate    # apply pending migrations (drizzle-kit migrate)
+Stoneturner also extract entities (like tags) for an agent to filter and follow connections like a graph database.
+
+### Bottleneck for Rate Limit Control
+
+[Bottleneck](https://github.com/SGrondin/bottleneck) is a lightweight javascript library to schedule jobs and "bottleneck" function calls. This is extremely useful for respecting external API rate limits. Syncs call 3rd-party APIs over and over. Bottleneck lets us control concurrent requests and backoffs.
+
+```typescript
+import Bottleneck from "bottleneck";
+
+export const aiGatewayBottleneck = new Bottleneck({
+  maxConcurrent: 5,
+  minTime: 200
+});
 ```
 
-## MCP server
+### Unified Integration Interface
 
-- Streamable HTTP MCP mounted at `/mcp`.
-- Not wrapped in CORS middleware — MCP clients call it server-side.
-- JSON-RPC, with no batching and no SSE streams.
-- Exposes `semantic_search`, `get_md_artifact_by_id`, `run_sql_query`, `get_integration_sources`, and `sync_source`.
+Integrating with 3rd-party APIs are notoriously cumbersome. We keep it simple by boiling 
+down 3rd-party syncs to their primitives, providing a recipe for building reliable 3rd-party
+syncs.
 
-## Frontend
+```typescript
+export type Integration = {
+  config: IntegrationConfig,
+  sync: (db: SqliteDb) => Promise<void> | void,
+  syncUpdates: (db: SqliteDb) => Promise<void> | void,
+  deleteSync: (db: SqliteDb) => Promise<void> | void,
+  handleRedirect?: (req: BunRequest, db: SqliteDb) => Promise<Response> | Response,
+  refreshAccessTokens?: (db: SqliteDb) => Promise<void> | void,
+}
+```
 
-- React 19 + `react-router-dom` SPA, using shadcn/radix and Tailwind v4.
-- Entry: `src/client/index.html` → `frontend.tsx`.
-- Fetch targets are inlined at build time from `process.env.BUN_PUBLIC_BACKEND_BASE_URL`.
-- Built with `bun-plugin-tailwind` configured in `build.ts` and `bunfig.toml`.
+This process is so repeatable, you can extend Stoneturner in minutes with a coding agent, 3rd-party docs, and 
+the Stoneturner Skill.
 
-## Commands
+<Note>
+  Let's set up Stoneturner locally and [build your own integration](/add-integrations) sync in just a few steps!
+</Note>
 
-| Command | Description |
-|---|---|
-| `bun dev` | Run the server with hot reload (`bun --hot src/index.ts`) |
-| `bun run build` | Bundle the frontend to `dist/` |
-| `bun start` | Production server |
-| `bunx tsc --noEmit` | Typecheck |
-| `bun run generate` | Generate migration files from schema |
-| `bun run migrate` | Apply pending migrations |
+
