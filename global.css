@@ -7,7 +7,7 @@ html.dark {
 }
 
 body,
-body * {
+body *:not(pre):not(code):not(pre *):not(code *) {
   color: var(--st-text) !important;
 }
 
