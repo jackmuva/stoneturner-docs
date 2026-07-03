@@ -42,6 +42,7 @@
             "pages": [
               "data/gong",
               "data/discord",
+              "data/github",
               "data/notion",
               "data/plaud",
               "data/firecrawl"
