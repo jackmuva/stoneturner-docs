@@ -1,0 +1,19 @@
+---
+title: "GitHub"
+description: "Connect to GitHub"
+icon: "/assets/logos/github.svg"
+---
+
+| | |
+|:-|:-|
+| Authentication | OAuth based |
+| External App | Create an app at [GitHub Developer Settings](https://github.com/settings/developers) |
+| Docs | [GitHub docs](https://docs.github.com) |
+
+<Note>
+  If you're using Stoneturner's Managed MCP, you do not need to create an external app.
+
+  If you're running Stoneturner locally, you will need to create an external app for OAuth apps to go through the authorization flow.
+</Note>
+
+After you authorize Stoneturner, provide a comma-separated list of repositories to sync (for example, `owner/repo1, owner/repo2`). Stoneturner syncs issues, pull requests, docs, discussions, and source code from those repositories into searchable markdown.
