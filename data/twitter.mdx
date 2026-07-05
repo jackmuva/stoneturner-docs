@@ -3,12 +3,13 @@ title: "X (Twitter)"
 description: "Connect to X (Twitter)"
 icon: "/assets/logos/twitter.svg"
 ---
-import ManagedNote from "/snippets/managed-note.mdx";
 
 Stoneturner syncs your liked posts into searchable markdown.
 
 <Note>
-  If you're using Stoneturner's Managed MCP, Stoneturner syncs your **100 most recent liked posts**. This limit is in place because of X API pricing.
+  If you're using Stoneturner's Managed MCP, you do not need to create an external app. Stoneturner syncs your **100 most recent liked posts** — this limit is in place because of X API pricing.
+
+  If you're running Stoneturner locally, you will need to create an external app for OAuth apps to go through the authorization flow.
 </Note>
 
 ## Running Stoneturner Locally
@@ -18,5 +19,3 @@ Stoneturner syncs your liked posts into searchable markdown.
 | Authentication | OAuth based |
 | External App | Create an app at [X Developer Portal](https://developer.x.com/en/portal/dashboard) |
 | Docs | [X API docs](https://docs.x.com) |
-
-<ManagedNote />
