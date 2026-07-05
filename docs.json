@@ -47,7 +47,8 @@
               "data/plaud",
               "data/firecrawl",
               "data/slack",
-              "data/spotify"
+              "data/spotify",
+              "data/twitter"
             ]
           }
         ]
