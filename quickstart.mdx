@@ -64,6 +64,25 @@ Just add Stoneturner to your agent config. That's it!
     }
     ```
   </Tab>
+  <Tab title="ChatGPT">
+    1. Go to [ChatGPT's App Settings](https://chatgpt.com/apps#settings/Connectors)
+    2. Enable **Developer Mode**
+    3. Create an app and make sure "Authentication" is set to **OAuth**
+    4. Under "Connection" set it to:
+
+    ```text Connection
+    https://app.stoneturner.app/mcp
+    ```
+  </Tab>
+  <Tab title="Claude Web">
+    1. Go to [Claude's Add Custom Connector](https://claude.ai/customize/connectors?modal=add-custom-connector)
+    2. Give the connector a name (i.e. Stoneturner)
+    3. Under "Remote MCP Server URL" set it to:
+
+    ```text MCP URL
+    https://app.stoneturner.app/mcp
+    ```
+  </Tab>
 </Tabs>
 
 ## Option 2: Running Stoneturner Locally
@@ -159,6 +178,25 @@ Configure an HTTP-based MCP in your agent config
         }
       }
     }
+    ```
+  </Tab>
+  <Tab title="ChatGPT">
+    1. Go to [ChatGPT's App Settings](https://chatgpt.com/apps#settings/Connectors)
+    2. Enable **Developer Mode**
+    3. Create an app and make sure "Authentication" is set to **OAuth**
+    4. Under "Connection" set it to:
+
+    ```text Connection
+    http://localhost:9000/mcp
+    ```
+  </Tab>
+  <Tab title="Claude Web">
+    1. Go to [Claude's Add Custom Connector](https://claude.ai/customize/connectors?modal=add-custom-connector)
+    2. Give the connector a name (i.e. Stoneturner)
+    3. Under "Remote MCP Server URL" set it to:
+
+    ```text MCP URL
+    http://localhost:9000/mcp
     ```
   </Tab>
 </Tabs>
