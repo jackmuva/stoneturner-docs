@@ -1,0 +1,156 @@
+---
+title: "Sync Scheduling & Retries"
+description: "How Stoneturner schedules incremental syncs, retries failed pipeline steps, and cleans up stale task history."
+sidebarTitle: "Advance usage"
+---
+
+Stoneturner runs three background jobs at **midnight UTC** every day. Together they keep your integrations up to date, recover from transient failures, and prevent the task log from growing without bound.
+
+<Note>
+  Set `CRON_ENABLED=false` in `.env` to disable all three cron jobs. Manual sync and retry endpoints still work.
+</Note>
+
+## Sync schedules
+
+Each integration can have its own sync frequency. Configure it from the knowledge base UI — open the **Sync frequency** dialog (`sync-schedule-dialog.tsx`) and choose **Daily**, **Weekly**, **Monthly**, or **No Schedule**.
+
+The choice is stored in the `syncPipeline` table:
+
+| Column | Purpose |
+|---|---|
+| `integration` | Primary key — one row per integration |
+| `frequency` | `DAILY`, `WEEKLY`, or `MONTHLY` |
+| `updateDate` | Timestamp of the last scheduled sync check |
+| `status` | `IDLE` or `SYNCING` |
+
+Selecting **No Schedule** deletes the pipeline row (`DELETE /api/sync-pipeline/:integration`), so that integration is excluded from automatic syncs.
+
+### What happens at runtime
+
+At midnight UTC, a `Bun.cron` job in `src/index.ts` calls `syncNewCron` (`src/core/services/sync-new-cron.ts`):
+
+1. Load all rows from `syncPipeline`.
+2. For each pipeline, compute the next due date from `updateDate` + `frequency` (add 1 day, 7 days, or 1 month).
+3. If today is past that date, trigger `syncUpdates` on the matching integration — an **incremental sync** that fetches only new or changed data.
+4. Bump the pipeline's `updateDate` via `upsertSyncPipeline` so the next check is scheduled correctly.
+5. Set pipeline `status` to `SYNCING` before the sync starts and back to `IDLE` when it finishes.
+
+Scheduled syncs are fire-and-forget: the cron handler does not block on the full pipeline completing.
+
+```typescript
+// src/core/services/sync-new-cron.ts (simplified)
+if (today > nextDate) {
+  await updateSyncPipelineStatus(sched.integration, "SYNCING", db);
+  Promise.resolve(supportedIntegrations[index]!.syncUpdates(db))
+    .finally(() => updateSyncPipelineStatus(sched.integration, "IDLE", db));
+  await upsertSyncPipeline({ integration: sched.integration, frequency: sched.frequency }, db);
+}
+```
+
+You can also configure schedules via the API:
+
+```bash
+POST /api/sync-pipeline
+Content-Type: application/json
+
+{ "integration": "gong", "frequency": "DAILY" }
+```
+
+## Retries
+
+When a pipeline step fails, it writes a `syncTask` row with `status: "FAILED"`, the `step` name, and `inputs` (cursor, offset, or other resume state). A second midnight cron calls `retryFailedTasks` (`src/core/services/retry-cron.ts`).
+
+### Retry flow
+
+1. Fetch all `FAILED` sync tasks in pages.
+2. Filter out tasks that are not retriable:
+   - Missing a `step` value
+   - Already retried **3 times** (`MAX_RETRIES`)
+   - Step function not registered in `step-registry.ts`
+3. For each remaining task, look up the step function by `integration` + `step` and re-invoke it:
+
+```typescript
+await stepFunc(false, db, task.inputs, task.id);
+```
+
+Passing `task.inputs` resumes from the saved cursor or offset. Passing `task.id` updates the same row instead of creating a new one.
+
+4. After each batch, increment the `retries` counter on retried tasks.
+5. On success, each step function updates the task status to `COMPLETED` (or `SUCCESS`) internally.
+
+Retry errors are logged to the server console:
+
+```typescript
+console.error(`retry failed for ${task.integration}/${task.step} (${task.id}):`, e);
+```
+
+### Manual trigger
+
+Fire the same retry logic on demand:
+
+```bash
+POST /api/syncTasks/retry
+```
+
+<Warning>
+  Every integration step must be registered in `src/integrations/step-registry.ts` for automatic retries to work. See [Add integrations](/add-integrations) for how to wire up `steps.ts`.
+</Warning>
+
+## Stale task cleanup
+
+A third midnight cron (`src/index.ts`) deletes `syncTask` rows older than **14 days**:
+
+```typescript
+const cutoff = new Date();
+cutoff.setDate(cutoff.getDate() - 14);
+await deleteSyncTasksPriorToDate(cutoff.toISOString(), db);
+```
+
+This keeps the monitoring UI responsive without affecting synced artifacts or vector embeddings.
+
+## Summary diagram
+
+```
+Midnight UTC  (Bun.cron "0 0 * * *")
+      │
+      ├─ syncNewCron
+      │     └─ for each syncPipeline row
+      │           ├─ updateDate + frequency due? ──► syncUpdates (incremental)
+      │           ├─ bump updateDate
+      │           └─ status: IDLE → SYNCING → IDLE
+      │
+      ├─ retryFailedTasks
+      │     └─ for each FAILED syncTask (retriable)
+      │           ├─ lookup step in step-registry.ts
+      │           ├─ re-invoke with saved inputs + task id
+      │           └─ increment retries (max 3)
+      │
+      └─ deleteSyncTasksPriorToDate
+            └─ remove syncTask rows older than 14 days
+
+All three jobs skip when CRON_ENABLED=false
+```
+
+## Common questions
+
+<AccordionGroup>
+  <Accordion title="What if I don't want automatic syncing?">
+    Select **No Schedule** in the sync frequency dialog. Stoneturner removes that integration's `syncPipeline` row, so the midnight scheduler ignores it. You can still trigger syncs manually.
+  </Accordion>
+
+  <Accordion title="Can I run a sync immediately?">
+    Yes. Use the per-integration sync button in the UI, which calls `POST /api/sync/:integration` for a full sync. For an incremental sync only, use `POST /api/sync/updates/:integration`.
+  </Accordion>
+
+  <Accordion title="How do I know if retries are failing?">
+    Check the server console. `retry-cron.ts` logs each failed retry with the integration, step name, task ID, and error message.
+  </Accordion>
+
+  <Accordion title="What happens to integrations I disconnect?">
+  Deleting an integration's credential calls `DELETE /api/sync/:integration`, which invokes that integration's `deleteSync` implementation. This removes its pipeline row, purges artifacts and embeddings, and clears integration-specific data.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  For a deeper look at how sync steps record progress and resume state, see [Add integrations](/add-integrations) and the [architecture](/architecture) page.
+</Tip>

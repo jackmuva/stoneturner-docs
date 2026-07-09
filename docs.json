@@ -24,7 +24,8 @@
         "pages": [
           "overview",
           "quickstart",
-          "how-stoneturner-works"
+          "how-stoneturner-works",
+          "advance-usage"
         ]
       },
       {
