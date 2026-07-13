@@ -84,21 +84,7 @@ src/
   index.ts              # Bun.serve() entry point with all routes
 ```
 
-## Background jobs
-
-Stoneturner registers three `Bun.cron` jobs at **midnight UTC** in `src/index.ts`. All three respect `CRON_ENABLED=false` in `.env`.
-
-| Job | Service | Purpose |
-|---|---|---|
-| Scheduled syncs | `sync-new-cron.ts` | Reads `syncPipeline` rows, triggers `syncUpdates` when `updateDate` + frequency is due |
-| Retries | `retry-cron.ts` | Re-invokes failed `syncTask` steps via `step-registry.ts` (max 3 retries) |
-| Cleanup | `deleteSyncTasksPriorToDate` | Deletes `syncTask` rows older than 14 days |
-
-Users configure per-integration sync frequency (Daily / Weekly / Monthly / No Schedule) in the UI dialog (`sync-schedule-dialog.tsx`). The choice is stored in the `syncPipeline` table and drives the scheduled sync cron.
-
-For full details on scheduling, retries, cleanup, and FAQs, see [Sync scheduling & retries](/advance-usage).
-
-## Technology Choices
+## Design Decisions
 
 ### Turso's SQLite Rewrite
 
@@ -107,6 +93,19 @@ Stoneturner uses [Turso](https://turso.tech) for local database storage and retr
 <img src="assets/turso.png" alt="turso" style={{borderRadius: "10px"}} />
 
 Rather than run a separate vector database, Turso keeps the database layer lightweight, local, and unified to search semantically or with SQL.
+
+### Background jobs
+
+CRON-based jobs to enabled schedule syncs and failed steps when downstream APIs fail or get rate-limited.
+
+| Job | Purpose |
+|---|---|
+| Scheduled syncs | Allow users to schedule sync updates on a schedule cadence (i.e. every day, week, or month) |
+| Retries | Re-invokes failed sync steps (max 3 retries) |
+| Cleanup | Deletes `syncTask` rows older than 14 days |
+
+For full details on scheduling, retries, cleanup, and FAQs, see [Sync scheduling & retries](/advance-usage).
+
 
 ### Vercel AI Gateway for Embedding Models and LLM Extraction
 
