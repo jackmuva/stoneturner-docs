@@ -49,15 +49,12 @@ sidebarTitle: "Architecture"
     ```
   </Card>
   <Card title="Core Services" >
-    Turso DB storage, vector embeddings, CRONs, rate limitting
+    Turso DB storage, vector embeddings, cron schedulers, and rate limiting
     ```typescript
-      export const searchContentEmbeddingByCosine = async (
-        queryEmbedding: number[],
-        limit: number = 5,
-        filters?: EmbeddingSearchFilters,
-        db: SqliteDb = defaultDb,
-      ) => {
-        const distance = sql<number>`vector_distance_cos(${contentEmbedding.embedding}, vector32(${JSON.stringify(queryEmbedding)}))`;
+    // Three midnight UTC crons in src/index.ts
+    Bun.cron("0 0 * * *", () => syncNewCron(db));      // scheduled incremental syncs
+    Bun.cron("0 0 * * *", () => retryFailedTasks(db));  // failed step retries
+    Bun.cron("0 0 * * *", () => deleteStaleTasks());   // 14-day task cleanup
     ```
   </Card>
 </Columns>
@@ -73,9 +70,10 @@ src/
     models/          # Shared type definitions
     services/        # Embedding, vector indexing, MCP server, tools
   integrations/
-    config-registry.ts   # Frontend UI config for all integrations
-    sync-registry.ts     # Sync dispatch for all integrations
-    gong/                 # Gong integration
+    config-registry.ts       # Frontend UI config for all integrations
+    integration-registry.ts  # Sync dispatch for all integrations
+    step-registry.ts         # Step lookup for retrying failed sync tasks
+    gong/                     # Gong integration
       config.ts           # IntegrationConfig definition
       integration.ts      # Integration object (sync pipeline, delete)
       db/                 # Gong-specific schemas and queries
@@ -86,7 +84,7 @@ src/
   index.ts              # Bun.serve() entry point with all routes
 ```
 
-## Technology Choices
+## Design Decisions
 
 ### Turso's SQLite Rewrite
 
@@ -95,6 +93,19 @@ Stoneturner uses [Turso](https://turso.tech) for local database storage and retr
 <img src="assets/turso.png" alt="turso" style={{borderRadius: "10px"}} />
 
 Rather than run a separate vector database, Turso keeps the database layer lightweight, local, and unified to search semantically or with SQL.
+
+### Background jobs
+
+CRON-based jobs to enabled schedule syncs and failed steps when downstream APIs fail or get rate-limited.
+
+| Job | Purpose |
+|---|---|
+| Scheduled syncs | Allow users to schedule sync updates on a schedule cadence (i.e. every day, week, or month) |
+| Retries | Re-invokes failed sync steps (max 3 retries) |
+| Cleanup | Deletes `syncTask` rows older than 14 days |
+
+For full details on scheduling, retries, cleanup, and FAQs, see [Sync scheduling & retries](/advance-usage).
+
 
 ### Vercel AI Gateway for Embedding Models and LLM Extraction
 
