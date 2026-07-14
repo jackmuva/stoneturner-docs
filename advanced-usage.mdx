@@ -1,7 +1,7 @@
 ---
 title: "Sync Scheduling & Retries"
-description: "How Stoneturner schedules incremental syncs, retries failed pipeline steps, and cleans up stale task history."
-sidebarTitle: "Advance usage"
+description: "How Stoneturner schedules incremental syncs and retries failed pipeline steps."
+sidebarTitle: "Advanced usage"
 ---
 
 Stoneturner runs background jobs to keep your synced data up to date and recover from transient failures.
@@ -14,6 +14,8 @@ Stoneturner runs background jobs to keep your synced data up to date and recover
 
 Each integration can have its own sync frequency. Configure it from the knowledge base UI — open the **Sync frequency** dialog (`sync-schedule-dialog.tsx`) and choose **Daily**, **Weekly**, **Monthly**, or **No Schedule**.
 
+<img src="assets/sync-schedule.png" alt="integrations" style={{borderRadius: "10px"}} />
+
 ## Retries
 
 When a pipeline step fails, it writes a `syncTask` row with `status: "FAILED"`, the `step` name, and `inputs` (cursor, offset, or other resume state). 
@@ -23,6 +25,8 @@ These steps are retried once per day until they reach a `SUCCESS` state OR have 
 ### Manual trigger
 
 If you'd like to trigger a retry immediately, you can manually triggers the retry for all failed tasks in the UI.
+
+<img src="assets/manual-retry.png" alt="integrations" style={{borderRadius: "10px"}} />
 
 ## Common questions
 
